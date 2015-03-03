@@ -24,6 +24,19 @@
   (let [link (apply hash-map args)]
     (update-in resource [:links] #((fnil conj []) % link))))
 
+(defn add-curie
+  "Add a curie to the resource. Arguments are named parameters and
+  should include the following:
+
+  * :name
+  * :href
+
+  The href should have a single template - the assumption is that curies have templated : true"
+  [resource & args]
+  (let [curie (apply hash-map args)]
+    (update-in resource [:curies] #((fnil conj []) % curie))))
+
+
 (defn add-resource
   "Add an embedded resource to the resource. You must specify a type
    for the embedded resource, which will be used to group them in
@@ -71,9 +84,10 @@
 
 (defn json-representation [resource]
   (let [links (into {"self" {"href" (:href resource)}}
-                    (for [[k link] (group-by :rel (:links resource))]
-                      (letfn [(remove-rel [l] (dissoc l :rel))]
-                        [k (if (= 1 (count link)) (remove-rel (first link)) (map remove-rel link))])))
+                    (into (for [[k link] (group-by :rel (:links resource))]
+                            (letfn [(remove-rel [l] (dissoc l :rel))]
+                              [k (if (= 1 (count link)) (remove-rel (first link)) (map remove-rel link))]))
+                          {"curies" (reduce (fn [acc curie] (conj acc {"name" (:name curie) "href" (:href curie) "templated" true})) [] (:curies resource))}))
         embedded (into {}
                        (map (fn [[k resources]]
                               [(plural k)
