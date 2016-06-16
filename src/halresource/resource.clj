@@ -3,13 +3,15 @@
             [cheshire.core :as json]
             [clojure.data.xml :as xml]))
 
-(defrecord Resource [href links embedded properties])
+(defrecord Resource [href title links embedded properties])
 
 (defn new-resource
   "Create a new empty resource, given a href for the resource."
-  
-  [href]
-  (->Resource href [] [] {}))
+
+  ([href]
+   (->Resource href nil [] [] {}))
+  ([href title]
+    (->Resource href title [] [] {})))
 
 (defn add-link
   "Add a link to the resource. Arguments are named parameters and
@@ -83,11 +85,12 @@
       xml/emit-str))
 
 (defn json-representation [resource]
-  (let [links (into {"self" {"href" (:href resource)}}
+  (let [self-title (if (:title resource) {"title" (:title resource)} {})
+        links (into {"self" (into self-title {"href" (:href resource)})}
                     (into (for [[k link] (group-by :rel (:links resource))]
                             (letfn [(remove-rel [l] (dissoc l :rel))]
                               [k (if (= 1 (count link)) (remove-rel (first link)) (map remove-rel link))]))
-                          {"curies" (reduce (fn [acc curie] (conj acc {"name" (:name curie) "href" (:href curie) "templated" true})) [] (:curies resource))}))
+                          (when-let [curies (:curies resource)] {"curies" (reduce (fn [acc curie] (conj acc {"name" (:name curie) "href" (:href curie) "templated" true})) [] curies)})))
         embedded (into {}
                        (map (fn [[k resources]]
                               [(plural k)
